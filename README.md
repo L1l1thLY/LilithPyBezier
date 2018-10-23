@@ -1,4 +1,4 @@
-#LilithPyBezier
+# LilithPyBezier
 
 一个 Python 实现的贝塞尔曲线生成库。
 面对对象且使用朴素的 MVC 设计模式。
