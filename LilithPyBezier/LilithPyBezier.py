@@ -19,8 +19,14 @@ class LPBezier(object):
                           Bezier_points=dict(xs=list(), ys=list()))
 
         self.fig = plt.figure("Bezier", dpi=100, figsize=(length, width), frameon=False)
-        self.canvas = self.fig.add_subplot(111, position=[0, 0, 1, 1])          # Fill the fig
-        self.canvas.axis([1, 100 * length, 1, 100 * width])
+        self.canvas = self.fig.add_subplot(111)          # Fill the fig
+
+        #self.canvas.set_axis('off')
+        #self.canvas.gca().xaxis.set_major_locator(plt.NullLocator())
+        #self.canvas.gca().yaxis.set_major_locator(plt.NullLocator())
+        #self.canvas.adjust(top=1, bottom =0, right=1, left=0, hspace=0, wspace=0)
+        #self.canvas.margins(0, 0)
+        self._refresh_the_view()
 
         # ColorSetting
         self.bezier_line_color = 'k'
@@ -136,10 +142,15 @@ class LPBezier(object):
         self.anchor_line_color = anchor_line_color
         self.anchor_dot_color = anchor_dot_color
 
-    def update_view(self, anchor_line=True, anchor_dot=True, bezier_line=True, bezier_dot=True):
+    def _refresh_the_view(self):
         self.canvas.clear()
-        self.canvas.axis([1, 600, 1, 600])
+        self.canvas.axis([1, 100 * self.length, 1, 100 * self.width])
+        self.canvas.set_frame_on(False)
+        self.canvas.set_axis_off()
+        self.canvas.set_position([0, 0, 1, 1])
 
+    def update_view(self, anchor_line=True, anchor_dot=True, bezier_line=True, bezier_dot=True):
+        self._refresh_the_view()
         self._draw_bezier(bezier_line, bezier_dot)
         self._draw_anchor(anchor_line, anchor_dot)
         self.canvas.figure.canvas.draw()
