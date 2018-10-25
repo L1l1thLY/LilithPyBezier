@@ -19,7 +19,7 @@ class LPBezier(object):
                           Bezier_points=dict(xs=list(), ys=list()))
 
         self.fig = plt.figure("Bezier", dpi=100, figsize=(length, width), frameon=False)
-        self.canvas = self.fig.add_subplot(111, position=[0, 0, 1, 1])
+        self.canvas = self.fig.add_subplot(111, position=[0, 0, 1, 1])          # Fill the fig
         self.canvas.axis([1, 100 * length, 1, 100 * width])
 
         # ColorSetting
@@ -44,8 +44,9 @@ class LPBezier(object):
                         anchor_dot_color='k')
         plt.show()
 
-    def save_to_file(self):
-        pass
+    def save_to_file(self, file_path):
+        with open(file_path, mode='wb') as image_file:
+            self.fig.savefig(image_file, format='png')
 
     def get_matrix(self):
         _buffer = io.BytesIO()
@@ -62,6 +63,7 @@ class LPBezier(object):
     def add_anchor(self, x, y):
         self.point['Anchors']['xs'].append(x)
         self.point['Anchors']['ys'].append(y)
+        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
 
     def _delete_point(self, mouse_location_x, mouse_location_y, tolerant):
         for index, point_location_x in enumerate(self.point['Anchors']['xs']):
@@ -70,10 +72,12 @@ class LPBezier(object):
                 self.point['Anchors']['xs'].pop(index)
                 self.point['Anchors']['ys'].pop(index)
                 break
+        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
 
     def delete_point_at_index(self, index):
         self.point['Anchors']['xs'].pop(index)
         self.point['Anchors']['ys'].pop(index)
+        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
 
     def _replace_point(self, mouse_location_x, mouse_location_y, tolerant):
         _index = None
@@ -83,10 +87,12 @@ class LPBezier(object):
                 self.point['Anchors']['xs'][index] = mouse_location_x
                 self.point['Anchors']['ys'][index] = mouse_location_y
                 return index
+        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
 
     def replace_point_by_index(self, index, mouse_location_x, mouse_location_y):
         self.point['Anchors']['xs'][index] = mouse_location_x
         self.point['Anchors']['ys'][index] = mouse_location_y
+        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
 
     def _bezier(self, *args):
         t = np.linspace(0, 1)
@@ -130,14 +136,15 @@ class LPBezier(object):
         self.anchor_line_color = anchor_line_color
         self.anchor_dot_color = anchor_dot_color
 
-    def update_view(self):
+    def update_view(self, anchor_line=True, anchor_dot=True, bezier_line=True, bezier_dot=True):
         self.canvas.clear()
         self.canvas.axis([1, 600, 1, 600])
-        self._draw__bezier()
-        self._draw_anchor()
+
+        self._draw_bezier(bezier_line, bezier_dot)
+        self._draw_anchor(anchor_line, anchor_dot)
         self.canvas.figure.canvas.draw()
 
-    def _draw__bezier(self, plot=True, scatter=True):
+    def _draw_bezier(self, plot=True, scatter=True):
         if plot is True:
             self.canvas.plot(self.point['Bezier_points']['xs'],
                              self.point['Bezier_points']['ys'],
@@ -225,7 +232,6 @@ class LPBezier(object):
         # Selecting an empty area, add a new point.
         elif self.dragged is None:
             self.add_anchor(event.xdata, event.ydata)
-        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
         self.update_view()
 
     def _drag(self, event):
@@ -243,5 +249,4 @@ class LPBezier(object):
             else:
                 self.replace_point_by_index(-1, event.xdata, event.ydata)
                 self.replace_point_by_index(0, event.xdata, event.ydata)
-        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
         self.update_view()
