@@ -23,10 +23,7 @@ class LPBezier(object):
         self.dragged = None                    # Drag tag, if moving the value is 1
         self.index_for_dragging = None
 
-        self.cidpress = self.canvas.figure.canvas.mpl_connect('button_press_event', self.on_press)
-        self.cidrelease = self.canvas.figure.canvas.mpl_connect('button_release_event', self.on_release)
-        self.cidmotion = self.canvas.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-        self.cidpick = self.canvas.figure.canvas.mpl_connect('pick_event', self.on_picker)
+        self.binding()
 
     @staticmethod
     def debug_print(arg):
@@ -86,13 +83,13 @@ class LPBezier(object):
         self.draw_anchor()
         self.canvas.figure.canvas.draw()
 
-    def draw_bezier(self, *args):  # Bezier曲线公式转换，获取x和y
-        t = np.linspace(0, 1)  # t 范围0到1
+    def draw_bezier(self, *args):
+        t = np.linspace(0, 1)
         le = len(args[0]) - 1
         le_1 = 0
         b_x, b_y = 0, 0
         for x in args[0]:
-            b_x = b_x + x * (t ** le_1) * ((1 - t) ** le) * comb(len(args[0]) - 1, le_1)  # comb 组合，perm 排列
+            b_x = b_x + x * (t ** le_1) * ((1 - t) ** le) * comb(len(args[0]) - 1, le_1)
             le = le - 1
             le_1 = le_1 + 1
 
@@ -103,6 +100,8 @@ class LPBezier(object):
             le = le - 1
             le_1 = le_1 + 1
         self.canvas.plot(b_x, b_y)
+        self.canvas.scatter(b_x, b_y, color='b', marker='o')
+
 
     def draw_anchor(self):
         self.canvas.scatter(self.point['Anchors']['xs'], self.point['Anchors']['ys'], color='k', marker='s', picker=5)
@@ -112,6 +111,13 @@ class LPBezier(object):
     # Controller
     # event_loop: drag : press => pick => motion => release
     #             select : press => release
+
+    def binding(self):
+        self.canvas.figure.canvas.mpl_connect('button_press_event', self.on_press)
+        self.canvas.figure.canvas.mpl_connect('button_release_event', self.on_release)
+        self.canvas.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+        self.canvas.figure.canvas.mpl_connect('pick_event', self.on_picker)
+
     def event_loop_end(self):
         self.pressed = None
         self.picked = None
