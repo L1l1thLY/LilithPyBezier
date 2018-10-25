@@ -11,34 +11,42 @@ import io
 
 class LPBezier(object):
     def __init__(self, length, width):
+
         self.length = length
         self.width = width
-        self.point = dict(Anchors=dict(xs=list(), ys=list()), Control_points=dict(xs=None, ys=None))
+
+        self.point = dict(Anchors=dict(xs=list(), ys=list()),
+                          Bezier_points=dict(xs=list(), ys=list()))
+
         self.fig = plt.figure("Bezier", dpi=100, figsize=(length, width), frameon=False)
-        self.fig.suptitle("LilithPyBezier")
-        self.canvas = self.fig.add_subplot(111)
-        # ViewControllerDelegate
-        self.pressed = None                   # Press tag, if press this value is 1
-        self.picked = None                    # Pick tag, if picked some object this value is 1
+        self.canvas = self.fig.add_subplot(111, position=[0, 0, 1, 1])
+        self.canvas.axis([1, 100 * length, 1, 100 * width])
+
+        # ColorSetting
+        self.bezier_line_color = 'k'
+        self.bezier_dot_color = None
+        self.anchor_line_color = None
+        self.anchor_dot_color = None
+
+        # Instance variables for GUI events loop
+        self.pressed = None                    # Press tag, if press this value is 1
+        self.picked = None                     # Pick tag, if picked some object this value is 1
         self.dragged = None                    # Drag tag, if moving the value is 1
         self.index_for_dragging = None
         self.closed = False
+        self.tolerant = 10
 
-        self.binding()
-
-    @staticmethod
-    def debug_print(arg):
-        print(arg)
-
-    @staticmethod
-    def show():
+    def show(self):
+        self._binding()
+        self.set_colors(bezier_line_color='r',
+                        bezier_dot_color='b',
+                        anchor_line_color='g',
+                        anchor_dot_color='k')
         plt.show()
 
-    # TODO: Should update it to photoshop version
-    def add_control_point(self, x, y, anchor_id=id):
+    def save_to_file(self):
         pass
 
-    # TODO: Should update it to photoshop version
     def get_matrix(self):
         _buffer = io.BytesIO()
         self.fig.savefig(_buffer, format='png')
@@ -55,16 +63,7 @@ class LPBezier(object):
         self.point['Anchors']['xs'].append(x)
         self.point['Anchors']['ys'].append(y)
 
-    def is_the_first_anchor(self, mouse_location_x, mouse_location_y, tolerant):
-        first_anchor_x = self.point['Anchors']['xs'][0]
-        first_anchor_y = self.point['Anchors']['ys'][0]
-        if abs(first_anchor_x - mouse_location_x) < tolerant and \
-                abs(first_anchor_y - mouse_location_y < tolerant):
-            return True
-        else:
-            return False
-
-    def delete_point(self, mouse_location_x, mouse_location_y, tolerant):
+    def _delete_point(self, mouse_location_x, mouse_location_y, tolerant):
         for index, point_location_x in enumerate(self.point['Anchors']['xs']):
             if abs(point_location_x - mouse_location_x) < tolerant and \
                abs(self.point['Anchors']['ys'][index] - mouse_location_y < tolerant):
@@ -76,7 +75,7 @@ class LPBezier(object):
         self.point['Anchors']['xs'].pop(index)
         self.point['Anchors']['ys'].pop(index)
 
-    def replace_point(self, mouse_location_x, mouse_location_y, tolerant):
+    def _replace_point(self, mouse_location_x, mouse_location_y, tolerant):
         _index = None
         for index, point_location_x in enumerate(self.point['Anchors']['xs']):
             if abs(point_location_x - mouse_location_x) < tolerant and \
@@ -89,15 +88,7 @@ class LPBezier(object):
         self.point['Anchors']['xs'][index] = mouse_location_x
         self.point['Anchors']['ys'][index] = mouse_location_y
 
-    # View
-    def update_view(self):
-        self.canvas.clear()
-        self.canvas.axis([0, 1, 0, 1])
-        self.draw_bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
-        self.draw_anchor()
-        self.canvas.figure.canvas.draw()
-
-    def draw_bezier(self, *args):
+    def _bezier(self, *args):
         t = np.linspace(0, 1)
         le = len(args[0]) - 1
         le_1 = 0
@@ -113,91 +104,144 @@ class LPBezier(object):
             b_y = b_y + y * (t ** le_1) * ((1 - t) ** le) * comb(len(args[0]) - 1, le_1)
             le = le - 1
             le_1 = le_1 + 1
-        self.canvas.plot(b_x, b_y)
-        self.canvas.scatter(b_x, b_y, color='b', marker='o')
+        self.point['Bezier_points']['xs'] = b_x
+        self.point['Bezier_points']['ys'] = b_y
 
-    def draw_anchor(self):
-        self.canvas.scatter(self.point['Anchors']['xs'], self.point['Anchors']['ys'], color='k', marker='s', picker=5)
-        self.canvas.plot(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
+    def get_anchors(self):
+        return self.point['Anchors']
+
+    def get_bezier_points(self):
+        return self.point['Bezier_points']
+
+    # Only for GUI closing trace
+    def _is_the_first_anchor(self, mouse_location_x, mouse_location_y, tolerant):
+        first_anchor_x = self.point['Anchors']['xs'][0]
+        first_anchor_y = self.point['Anchors']['ys'][0]
+        if abs(first_anchor_x - mouse_location_x) < tolerant and \
+                abs(first_anchor_y - mouse_location_y < tolerant):
+            return True
+        else:
+            return False
+
+    # View
+    def set_colors(self, bezier_line_color, bezier_dot_color, anchor_line_color, anchor_dot_color):
+        self.bezier_line_color = bezier_line_color
+        self.bezier_dot_color = bezier_dot_color
+        self.anchor_line_color = anchor_line_color
+        self.anchor_dot_color = anchor_dot_color
+
+    def update_view(self):
+        self.canvas.clear()
+        self.canvas.axis([1, 600, 1, 600])
+        self._draw__bezier()
+        self._draw_anchor()
+        self.canvas.figure.canvas.draw()
+
+    def _draw__bezier(self, plot=True, scatter=True):
+        if plot is True:
+            self.canvas.plot(self.point['Bezier_points']['xs'],
+                             self.point['Bezier_points']['ys'],
+                             color=self.bezier_line_color)
+        if scatter is True:
+            self.canvas.scatter(self.point['Bezier_points']['xs'],
+                                self.point['Bezier_points']['ys'],
+                                color=self.bezier_dot_color,
+                                marker='o')
+
+    def _draw_anchor(self, plot=True, scatter=True):
+        if plot is True:
+            self.canvas.plot(self.point['Anchors']['xs'],
+                             self.point['Anchors']['ys'],
+                             color=self.anchor_line_color)
+        if scatter is True:
+            self.canvas.scatter(self.point['Anchors']['xs'],
+                                self.point['Anchors']['ys'],
+                                color=self.anchor_dot_color,
+                                marker='s',
+                                picker=5)
 
     # Controller
-    # event_loop: drag : press => pick => motion => release
-    #             select : press => release
+    # events_loop: drag : press => pick => motion => release
+    #              select : press => release
+    # If u don't need GUI, please do not invoke any method here.
 
-    def binding(self):
-        self.canvas.figure.canvas.mpl_connect('button_press_event', self.on_press)
-        self.canvas.figure.canvas.mpl_connect('button_release_event', self.on_release)
-        self.canvas.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-        self.canvas.figure.canvas.mpl_connect('pick_event', self.on_picker)
+    def _binding(self):
+        self.canvas.figure.canvas.mpl_connect('button_press_event', self._on_press)
+        self.canvas.figure.canvas.mpl_connect('button_release_event', self._on_release)
+        self.canvas.figure.canvas.mpl_connect('motion_notify_event', self._on_motion)
+        self.canvas.figure.canvas.mpl_connect('pick_event', self._on_picker)
 
-    def event_loop_end(self):
+    def _event_loop_end(self):
         self.pressed = None
         self.picked = None
         self.dragged = None
         self.index_for_dragging = None
 
-    def on_press(self, event):
+    def _on_press(self, event):
         if event.inaxes != self.canvas.axes:
             return
 
         self.pressed = 1
 
-    def on_release(self, event):
+    def _on_release(self, event):
         if event.inaxes != self.canvas.axes:
             return
 
         # According to the event loop select : press => release
         if self.pressed is not None:
-            self.select(event)
+            self._select(event)
 
-        self.event_loop_end()
+        self._event_loop_end()
         return
 
-    def on_motion(self, event):
+    def _on_motion(self, event):
         if event.inaxes != self.canvas.axes:
             return
 
         # According to the event loop drag : press => pick => motion => release
         if self.pressed is not None and self.picked is not None:
-            self.drag(event)
+            self._drag(event)
         else:
             return
 
-    def on_picker(self, event):
-        self.debug_print("pick")
+    def _on_picker(self, event):
         self.picked = 1
 
-    def select(self, event):
+    def _select(self, event):
         # Selecting an exist point, it should be removed.
         if self.picked is not None and self.dragged is None:
             mouse_location_x = event.xdata
             mouse_location_y = event.ydata
-            if self.is_the_first_anchor(mouse_location_x, mouse_location_y, 0.02) is True and \
+            if self._is_the_first_anchor(mouse_location_x, mouse_location_y, self.tolerant) is True and \
                self.closed is False:
                 self.add_anchor(self.point['Anchors']['xs'][0], self.point['Anchors']['ys'][0])
                 self.closed = True
-            elif self.is_the_first_anchor(mouse_location_x, mouse_location_y, 0.02) is True and self.closed is True:
+            elif self._is_the_first_anchor(mouse_location_x, mouse_location_y, self.tolerant) is True and self.closed is True:
                 self.delete_point_at_index(0)
                 self.delete_point_at_index(-1)
                 self.closed = False
             else:
-                self.delete_point(mouse_location_x, mouse_location_y, tolerant=0.02)
+                self._delete_point(mouse_location_x, mouse_location_y, tolerant=self.tolerant)
         # Selecting an empty area, add a new point.
         elif self.dragged is None:
             self.add_anchor(event.xdata, event.ydata)
+        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
         self.update_view()
 
-    def drag(self, event):
+    def _drag(self, event):
         if self.dragged is None:
             self.dragged = 1
-            if self.is_the_first_anchor(event.xdata, event.ydata, 0.02) is True and self.closed is True:
+            if self._is_the_first_anchor(event.xdata, event.ydata, self.tolerant) is True and self.closed is True:
+                self.dragged = 2
                 self.replace_point_by_index(0, event.xdata, event.ydata)
                 self.replace_point_by_index(-1, event.xdata, event.ydata)
             else:
-                self.index_for_dragging = self.replace_point(event.xdata, event.ydata, 0.02)
-        if self.is_the_first_anchor(event.xdata, event.ydata, 0.02) is True and self.closed is True:
-            self.replace_point_by_index(0, event.xdata, event.ydata)
-            self.replace_point_by_index(-1, event.xdata, event.ydata)
+                self.index_for_dragging = self._replace_point(event.xdata, event.ydata, self.tolerant)
         else:
-            self.replace_point_by_index(self.index_for_dragging, event.xdata, event.ydata)
+            if self.dragged is 1:
+                self.replace_point_by_index(self.index_for_dragging, event.xdata, event.ydata)
+            else:
+                self.replace_point_by_index(-1, event.xdata, event.ydata)
+                self.replace_point_by_index(0, event.xdata, event.ydata)
+        self._bezier(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
         self.update_view()
