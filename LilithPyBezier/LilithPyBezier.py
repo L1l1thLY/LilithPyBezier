@@ -22,6 +22,7 @@ class LPBezier(object):
         self.picked = None                    # Pick tag, if picked some object this value is 1
         self.dragged = None                    # Drag tag, if moving the value is 1
         self.index_for_dragging = None
+        self.closed = False
 
         self.binding()
 
@@ -54,6 +55,15 @@ class LPBezier(object):
         self.point['Anchors']['xs'].append(x)
         self.point['Anchors']['ys'].append(y)
 
+    def is_the_first_anchor(self, mouse_location_x, mouse_location_y, tolerant):
+        first_anchor_x = self.point['Anchors']['xs'][0]
+        first_anchor_y = self.point['Anchors']['ys'][0]
+        if abs(first_anchor_x - mouse_location_x) < tolerant and \
+                abs(first_anchor_y - mouse_location_y < tolerant):
+            return True
+        else:
+            return False
+
     def delete_point(self, mouse_location_x, mouse_location_y, tolerant):
         for index, point_location_x in enumerate(self.point['Anchors']['xs']):
             if abs(point_location_x - mouse_location_x) < tolerant and \
@@ -61,6 +71,10 @@ class LPBezier(object):
                 self.point['Anchors']['xs'].pop(index)
                 self.point['Anchors']['ys'].pop(index)
                 break
+
+    def delete_point_at_index(self, index):
+        self.point['Anchors']['xs'].pop(index)
+        self.point['Anchors']['ys'].pop(index)
 
     def replace_point(self, mouse_location_x, mouse_location_y, tolerant):
         _index = None
@@ -102,11 +116,9 @@ class LPBezier(object):
         self.canvas.plot(b_x, b_y)
         self.canvas.scatter(b_x, b_y, color='b', marker='o')
 
-
     def draw_anchor(self):
         self.canvas.scatter(self.point['Anchors']['xs'], self.point['Anchors']['ys'], color='k', marker='s', picker=5)
         self.canvas.plot(self.point['Anchors']['xs'], self.point['Anchors']['ys'])
-
 
     # Controller
     # event_loop: drag : press => pick => motion => release
@@ -160,7 +172,16 @@ class LPBezier(object):
         if self.picked is not None and self.dragged is None:
             mouse_location_x = event.xdata
             mouse_location_y = event.ydata
-            self.delete_point(mouse_location_x, mouse_location_y, tolerant=0.02)
+            if self.is_the_first_anchor(mouse_location_x, mouse_location_y, 0.02) is True and \
+               self.closed is False:
+                self.add_anchor(self.point['Anchors']['xs'][0], self.point['Anchors']['ys'][0])
+                self.closed = True
+            elif self.is_the_first_anchor(mouse_location_x, mouse_location_y, 0.02) is True and self.closed is True:
+                self.delete_point_at_index(0)
+                self.delete_point_at_index(-1)
+                self.closed = False
+            else:
+                self.delete_point(mouse_location_x, mouse_location_y, tolerant=0.02)
         # Selecting an empty area, add a new point.
         elif self.dragged is None:
             self.add_anchor(event.xdata, event.ydata)
@@ -169,15 +190,14 @@ class LPBezier(object):
     def drag(self, event):
         if self.dragged is None:
             self.dragged = 1
-            self.index_for_dragging = self.replace_point(event.xdata, event.ydata, 0.02)
-        self.replace_point_by_index(self.index_for_dragging, event.xdata, event.ydata)
+            if self.is_the_first_anchor(event.xdata, event.ydata, 0.02) is True and self.closed is True:
+                self.replace_point_by_index(0, event.xdata, event.ydata)
+                self.replace_point_by_index(-1, event.xdata, event.ydata)
+            else:
+                self.index_for_dragging = self.replace_point(event.xdata, event.ydata, 0.02)
+        if self.is_the_first_anchor(event.xdata, event.ydata, 0.02) is True and self.closed is True:
+            self.replace_point_by_index(0, event.xdata, event.ydata)
+            self.replace_point_by_index(-1, event.xdata, event.ydata)
+        else:
+            self.replace_point_by_index(self.index_for_dragging, event.xdata, event.ydata)
         self.update_view()
-
-
-
-
-if __name__ == '__main__':
-    newBezier = LPBezier(5, 5)
-    newBezier.show()
-
-    print("Hello")
